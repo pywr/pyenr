@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 import logging
 logger = logging.getLogger(__name__)
 
+
 def main():
     m = Model.load('simple-pv.json', solver='glpk-dcopf')
 
@@ -16,7 +17,7 @@ def main():
 
     m.setup()
     stats = m.run()
-    logger.info(stats.to_dataframe())
+    print(stats.to_dataframe())
 
     df = pandas.concat({'gen1': gen1.to_dataframe(), 'pv2': pv2.to_dataframe()}, axis=1)
 

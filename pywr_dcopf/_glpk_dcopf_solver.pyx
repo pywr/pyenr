@@ -24,7 +24,7 @@ cdef class CythonGLPKDCOPFSolver:
     cdef int idx_col_load
     cdef int idx_col_phase
     cdef int idx_row_power_flow
-
+    cdef int idx_row_line_capacity
 
     cdef public list buses
     cdef public list lines
@@ -111,6 +111,7 @@ cdef class CythonGLPKDCOPFSolver:
         for col, route in enumerate(loads):
             set_col_bnds(self.prob, self.idx_col_load+col, GLP_LO, 0.0, DBL_MAX)
         for col, route in enumerate(buses):
+            # TODO what should the bounds constraints on the buses be??
             set_col_bnds(self.prob, self.idx_col_phase+col, GLP_LO, 0.0, DBL_MAX)
 
         # Power flow constraints
@@ -145,6 +146,32 @@ cdef class CythonGLPKDCOPFSolver:
                 val[1+n] = v
             set_mat_row(self.prob, self.idx_row_power_flow+ibus, len(cols), ind, val)
             set_row_bnds(self.prob, self.idx_row_power_flow+ibus, GLP_FX, 0.0, 0.0)
+            free(ind)
+            free(val)
+
+        # Line constraints
+        self.idx_row_line_capacity = glp_add_rows(self.prob, len(lines))
+        for iline, line in enumerate(lines):
+
+            cols = []
+            susceptance = 1 / line.reactance
+
+            for bus in graph.neighbors(line):
+                ibus = buses.index(bus)
+                cols.append(self.idx_col_phase + ibus)
+
+            assert len(cols) == 2
+
+            ind = <int*>malloc((1+len(cols)) * sizeof(int))
+            val = <double*>malloc((1+len(cols)) * sizeof(double))
+
+            ind[1] = cols[0]
+            val[1] = susceptance
+            ind[2] = cols[1]
+            val[2] = -susceptance
+
+            set_mat_row(self.prob, self.idx_row_line_capacity+iline, len(cols), ind, val)
+            set_row_bnds(self.prob, self.idx_row_line_capacity+iline, GLP_FR, inf_to_dbl_max(-inf), inf_to_dbl_max(inf))
             free(ind)
             free(val)
 
@@ -228,6 +255,7 @@ cdef class CythonGLPKDCOPFSolver:
     # @cython.initializedcheck(False)
     # @cython.cdivision(True)
     cdef object _solve_scenario(self, model, ScenarioIndex scenario_index):
+        cdef Node gen, load, line
         cdef double min_gen, min_load
         cdef double max_gen, max_load
         cdef double cost
@@ -283,8 +311,19 @@ cdef class CythonGLPKDCOPFSolver:
             set_col_bnds(self.prob, self.idx_col_generation+col, constraint_type(min_gen, max_gen),
                          min_gen, max_gen)
 
+        # update line bounds
+        for row, line in enumerate(lines):
+            # NB get_min_flow is unused.
+            max_load = inf_to_dbl_max(line.get_max_flow(scenario_index))
+            if abs(max_load) < 1e-8:
+                max_load = 0.0
+
+            # Capacity can be +/- the max_load here (i.e. in either direction).
+            set_row_bnds(self.prob, self.idx_row_line_capacity+row, constraint_type(-max_load, max_load),
+                         -max_load, max_load)
+
+        # Update load bounds
         for col, load in enumerate(loads):
-            # Update load bounds
             min_load = inf_to_dbl_max(load.get_min_flow(scenario_index))
             if abs(min_load) < 1e-8:
                 min_load = 0.0
@@ -352,7 +391,10 @@ cdef class CythonGLPKDCOPFSolver:
             load.commit(scenario_index.global_id, l)
             #print(col, load, l)
 
-        # TODO calculate and update bus & line flows
+        for row, line in enumerate(lines):
+            l = glp_get_row_prim(self.prob, self.idx_row_line_capacity+row)
+            line.commit(scenario_index.global_id, l)
+
 
 
     cpdef dump_mps(self, filename):

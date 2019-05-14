@@ -3,14 +3,15 @@ from pywr.recorders import NumpyArrayNodeRecorder
 from pywr_dcopf.core import Bus, Line, Generator, Load
 import numpy as np
 import pandas
+import pytest
 import os
 
 
 TEST_FOLDER = os.path.dirname(__file__)
 
+@pytest.fixture()
+def simple_dcopf_model():
 
-def test_core():
-    """Test basic functionality of the DC-OPF model."""
     m = Model(solver='glpk-dcopf')
 
     g1 = Generator(m, 'gen1')
@@ -46,23 +47,41 @@ def test_core():
     b2.connect(l23)
     l23.connect(b3)
 
-    m.setup()
-    m.run()
-
-    np.testing.assert_allclose(g1.flow, [100.0])
-    np.testing.assert_allclose(g2.flow, [50.0])
-    np.testing.assert_allclose(l3.flow, [150.0])
-    # TODO test the flow in each line (not currently updated by the solver)
+    return m
 
 
-def test_ghana_load():
-
-    m = Model.load(os.path.join(TEST_FOLDER, 'models', 'ghana-pywr.json'), solver='glpk-dcopf')
+def test_core(simple_dcopf_model):
+    """Test basic functionality of the DC-OPF model."""
+    m = simple_dcopf_model
 
     m.setup()
     m.run()
 
-    # TODO add assertions
+    np.testing.assert_allclose(m.nodes['gen1'].flow, [100.0])
+    np.testing.assert_allclose(m.nodes['gen2'].flow, [50.0])
+    np.testing.assert_allclose(m.nodes['load3'].flow, [150.0])
+
+    np.testing.assert_allclose(m.nodes['line12'].flow, [50/3])
+    np.testing.assert_allclose(m.nodes['line13'].flow, [100.0 - 50/3])
+    np.testing.assert_allclose(m.nodes['line23'].flow, [50.0 + 50/3])
+
+
+def test_core_with_line_capacities(simple_dcopf_model):
+    """Test line constraints on basic DC-OPF model."""
+    m = simple_dcopf_model
+
+    m.nodes['line13'].max_flow = 50.0
+
+    m.setup()
+    m.run()
+
+    np.testing.assert_allclose(m.nodes['gen1'].flow, [25.0])
+    np.testing.assert_allclose(m.nodes['gen2'].flow, [100.0])
+    np.testing.assert_allclose(m.nodes['load3'].flow, [125.0])
+
+    np.testing.assert_allclose(m.nodes['line12'].flow, [-25.0])
+    np.testing.assert_allclose(m.nodes['line13'].flow, [50.0])
+    np.testing.assert_allclose(m.nodes['line23'].flow, [75.0])
 
 
 def test_simple_pv():

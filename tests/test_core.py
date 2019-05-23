@@ -99,3 +99,18 @@ def test_simple_pv():
     assert df.shape[0] == 745
     # TODO add better assertions
 
+
+def test_pv_generator():
+
+    m = Model.load(os.path.join(TEST_FOLDER, 'models', 'pv-generator.json'), solver='glpk-dcopf')
+
+    gen1 = NumpyArrayNodeRecorder(m, m.nodes['gen1'])
+    pv2 = NumpyArrayNodeRecorder(m, m.nodes['pv2'])
+
+    m.setup()
+    m.run()
+
+    df = pandas.concat({'gen1': gen1.to_dataframe(), 'pv2': pv2.to_dataframe()}, axis=1)
+
+    assert df.shape[0] == 745
+    # TODO add better assertions

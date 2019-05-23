@@ -1,5 +1,6 @@
 
 from pywr.solvers import Solver, solver_registry
+from . import parameters
 from ._glpk_dcopf_solver import CythonGLPKDCOPFSolver as cy_CythonGLPKDCOPFSolver
 
 class CythonGLPKDCOPFSolver(Solver):

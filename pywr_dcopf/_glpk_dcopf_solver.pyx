@@ -6,7 +6,7 @@ cimport numpy as np
 
 cimport cython
 from collections import defaultdict
-from pywr_dcopf.core import Bus, Line, Generator, Load
+from pywr_dcopf.core import Bus, Line, Generator, Load, Battery
 from pywr._core cimport *
 from pywr.core import ModelStructureError
 import time
@@ -25,11 +25,13 @@ cdef class CythonGLPKDCOPFSolver:
     cdef int idx_col_phase
     cdef int idx_row_power_flow
     cdef int idx_row_line_capacity
+    cdef int idx_row_batteries
 
     cdef public list buses
     cdef public list lines
     cdef public list generators
     cdef public list loads
+    cdef public list batteries
 
     cdef list all_nodes
     cdef int num_nodes
@@ -86,6 +88,7 @@ cdef class CythonGLPKDCOPFSolver:
         lines = []
         generators = []
         loads = []
+        batteries = []
 
         for some_node in self.all_nodes:
             if isinstance(some_node, Bus):
@@ -96,6 +99,13 @@ cdef class CythonGLPKDCOPFSolver:
                 generators.append(some_node)
             elif isinstance(some_node, Load):
                 loads.append(some_node)
+            elif isinstance(some_node, Battery):
+                batteries.append(some_node)
+                for generator in some_node.inputs:
+                    generators.append(generator)
+                for load in some_node.outputs:
+                    loads.append(load)
+
 
         # clear the previous problem
         glp_erase_prob(self.prob)
@@ -137,8 +147,15 @@ cdef class CythonGLPKDCOPFSolver:
                 elif isinstance(some_node, Load):
                     iload = loads.index(some_node)
                     cols[self.idx_col_load+iload] += -1.0
+                elif isinstance(some_node, Battery):
+                    # Add the battery's generators and loads to the bus connectivity.
+                    for generator in some_node.inputs:
+                        igen = generators.index(generator)
+                        cols[self.idx_col_generation+igen] += 1.0
+                    for load in some_node.outputs:
+                        iload = loads.index(load)
+                        cols[self.idx_col_load+iload] += -1.0
 
-            #print(ibus, bus, cols)
             ind = <int*>malloc((1+len(cols)) * sizeof(int))
             val = <double*>malloc((1+len(cols)) * sizeof(double))
             for n, (c, v) in enumerate(cols.items()):
@@ -175,10 +192,36 @@ cdef class CythonGLPKDCOPFSolver:
             free(ind)
             free(val)
 
+        # Battery capacity constraints
+        if len(batteries):
+            self.idx_row_batteries = glp_add_rows(self.prob, len(batteries))
+        for row, battery in enumerate(batteries):
+
+            cols_output = []
+            for load in battery.outputs:
+                cols_output.append(loads.index(load))
+            cols_input = []
+            for generator in battery.inputs:
+                cols_input.append(generators.index(generator))
+
+            ind = <int*>malloc((1+len(cols_output)+len(cols_input)) * sizeof(int))
+            val = <double*>malloc((1+len(cols_output)+len(cols_input)) * sizeof(double))
+            for n, c in enumerate(cols_output):
+                ind[1+n] = self.idx_col_load+c
+                val[1+n] = 1
+            for n, c in enumerate(cols_input):
+                ind[1+len(cols_output)+n] = self.idx_col_generation+c
+                val[1+len(cols_output)+n] = -1
+
+            set_mat_row(self.prob, self.idx_row_batteries+row, len(cols_output)+len(cols_input), ind, val)
+            free(ind)
+            free(val)
+
         self.buses = buses
         self.lines = lines
         self.generators = generators
         self.loads = loads
+        self.batteries = batteries
 
         self._init_basis_arrays(model)
         self.is_first_solve = True
@@ -256,6 +299,7 @@ cdef class CythonGLPKDCOPFSolver:
     # @cython.cdivision(True)
     cdef object _solve_scenario(self, model, ScenarioIndex scenario_index):
         cdef Node gen, load, line
+        cdef Storage battery
         cdef double min_gen, min_load
         cdef double max_gen, max_load
         cdef double cost
@@ -282,6 +326,7 @@ cdef class CythonGLPKDCOPFSolver:
         cdef list lines = self.lines
         cdef list generators = self.generators
         cdef list loads = self.loads
+        cdef list batteries = self.batteries
         nbuses = len(buses)
         # update route cost
 
@@ -307,7 +352,6 @@ cdef class CythonGLPKDCOPFSolver:
             max_gen = inf_to_dbl_max(gen.get_max_flow(scenario_index))
             if abs(max_gen) < 1e-8:
                 max_gen = 0.0
-            #print(col, gen, min_gen, max_gen)
             set_col_bnds(self.prob, self.idx_col_generation+col, constraint_type(min_gen, max_gen),
                          min_gen, max_gen)
 
@@ -330,7 +374,6 @@ cdef class CythonGLPKDCOPFSolver:
             max_load = inf_to_dbl_max(load.get_max_flow(scenario_index))
             if abs(max_load) < 1e-8:
                 max_load = 0.0
-            #print(col, load, min_load, max_load)
             set_col_bnds(self.prob, self.idx_col_load+col, constraint_type(min_load, max_load),
                          min_load, max_load)
 
@@ -338,6 +381,26 @@ cdef class CythonGLPKDCOPFSolver:
             #              min_load, max_load)
 
         self.stats['bounds_update_power_flow'] += time.perf_counter() - t0
+
+        # update battery node constraint
+        for row, battery in enumerate(batteries):
+            max_volume = battery.get_max_volume(scenario_index)
+            min_volume = battery.get_min_volume(scenario_index)
+
+            if max_volume == min_volume:
+                set_row_bnds(self.prob, self.idx_row_batteries+row, GLP_FX, 0.0, 0.0)
+            else:
+                avail_volume = max(battery._volume[scenario_index.global_id] - min_volume, 0.0)
+                # change in battery cannot be more than the current volume or
+                # result in maximum volume being exceeded
+                lb = -avail_volume/timestep.days
+                ub = max(max_volume - battery._volume[scenario_index.global_id], 0.0) / timestep.days
+
+                if abs(lb) < 1e-8:
+                    lb = 0.0
+                if abs(ub) < 1e-8:
+                    ub = 0.0
+                set_row_bnds(self.prob, self.idx_row_batteries+row, constraint_type(lb, ub), lb, ub)
 
         t0 = time.perf_counter()
 
@@ -384,12 +447,10 @@ cdef class CythonGLPKDCOPFSolver:
         for col, gen in enumerate(generators):
             g = glp_get_col_prim(self.prob, self.idx_col_generation+col)
             gen.commit(scenario_index.global_id, g)
-            #print(col, gen, g)
 
         for col, load in enumerate(loads):
             l = glp_get_col_prim(self.prob, self.idx_col_load+col)
             load.commit(scenario_index.global_id, l)
-            #print(col, load, l)
 
         for row, line in enumerate(lines):
             l = glp_get_row_prim(self.prob, self.idx_row_line_capacity+row)

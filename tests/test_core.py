@@ -1,5 +1,5 @@
 from pywr.model import Model
-from pywr.recorders import NumpyArrayNodeRecorder
+from pywr.recorders import NumpyArrayNodeRecorder, NumpyArrayStorageRecorder
 from pywr_dcopf.core import Bus, Line, Generator, Load
 import numpy as np
 import pandas
@@ -111,6 +111,27 @@ def test_pv_generator():
     m.run()
 
     df = pandas.concat({'gen1': gen1.to_dataframe(), 'pv2': pv2.to_dataframe()}, axis=1)
+
+    assert df.shape[0] == 745
+    # TODO add better assertions
+
+
+def test_simple_battery():
+
+    m = Model.load(os.path.join(TEST_FOLDER, 'models', 'simple-battery.json'), solver='glpk-dcopf')
+
+    gen1 = NumpyArrayNodeRecorder(m, m.nodes['gen1'])
+    pv2 = NumpyArrayNodeRecorder(m, m.nodes['pv2'])
+    battery1 = NumpyArrayStorageRecorder(m, m.nodes['battery1'])
+
+    m.setup()
+    m.run()
+
+    df = pandas.concat({
+        'gen1': gen1.to_dataframe(),
+        'pv2': pv2.to_dataframe(),
+        'battery1': battery1.to_dataframe()
+    }, axis=1)
 
     assert df.shape[0] == 745
     # TODO add better assertions

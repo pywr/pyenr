@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "title": "Simple network with solar PV input.",
+    "description": "Time varying radiation input.",
+    "minimum_version": "1.1"
+  },
+  "timestepper": {
+    "start": "2019-01-01",
+    "end": "2019-02-01",
+    "timestep": "H"
+  },
+  "nodes": [
+    {
+      "name": "gen1",
+      "type": "generator",
+      "max_flow": 200,
+      "cost": 20,
+      "comment": "MWh/day"
+    },
+    {
+      "name": "battery1",
+      "type": "battery",
+      "initial_volume": 500,
+      "max_volume": 1000,
+      "cost": -10,
+      "comment": "MWh"
+    },
+    {
+      "name": "pv2",
+      "type": "generator",
+      "max_flow": "solar_power"
+    },
+    {
+      "name": "load2",
+      "type": "load",
+      "max_flow": 200,
+      "cost": -100,
+      "comment": "MWh/day"
+    },
+    {
+      "name": "bus1",
+      "type": "bus"
+    },
+    {
+      "name": "bus2",
+      "type": "bus"
+    },
+    {
+      "name": "line12",
+      "type": "line",
+      "reactance": 0.1
+    }
+  ],
+  "edges": [
+    ["gen1", "bus1"],
+    ["battery1", "bus1"],
+    ["bus1", "line12"],
+    ["line12", "bus2"],
+    ["pv2", "bus2"],
+    ["load2", "bus2"]
+  ],
+  "parameters": {
+    "solar_power": {
+      "type": "solargeneration",
+      "position": {
+        "latitude": "52.0000 N",
+        "longitude": "0.0000 W"
+      },
+      "collector_azimuth": 1.6,
+      "collector_tilt": 0.785,
+      "collector_area": 2400e-3,
+      "direct_radiation_parameter": "hourly_direct_radiation",
+      "diffuse_radiation_parameter": "hourly_diffuse_radiation",
+      "comment": "Assume 100,000 m2 (10 ha), but also convert from Wh to MWh/day"
+    },
+    "hourly_direct_radiation": {
+      "type": "dataframe",
+      "url": "data/r_0001_cntr_hly.h5",
+      "key": "r_0001_cntr_hly",
+      "column": "dirradt_htotal",
+      "comment": "Units: Wh/m2;"
+    },
+    "hourly_diffuse_radiation": {
+      "type": "dataframe",
+      "url": "data/r_0001_cntr_hly.h5",
+      "key": "r_0001_cntr_hly",
+      "column": "diffradt_htotal",
+      "comment": "Units: Wh/m2;"
+    }
+  }
+}

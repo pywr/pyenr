@@ -98,3 +98,15 @@ class SolarGenerationParameter(Parameter):
                    diffuse_radiation_parameter=diffuse_radiation_parameter, **data)
 
 SolarGenerationParameter.register()
+
+
+class HourlyDiurnalParameter(Parameter):
+    def __init__(self, model, values, **kwargs):
+        super().__init__(model, **kwargs)
+        self.values = values
+
+    def value(self, ts, si):
+        hour = ts.hour
+        return self.values[hour-1]
+
+HourlyDiurnalParameter.register()

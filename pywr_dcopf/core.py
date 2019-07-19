@@ -85,7 +85,6 @@ class Load(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
         return node
 
 
-
 class Line(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
 
     def __init__(self, *args, **kwargs):
@@ -97,7 +96,13 @@ class Line(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
     def load(cls, data, model):
         name = data.pop('name')
         data.pop('type')
+        max_flow = data.pop('max_flow', None)
         node = cls(model=model, name=name, **data)
+
+        max_flow = load_parameter(model, max_flow)
+        if max_flow is not None:
+            node.max_flow = max_flow
+
         return node
 
 

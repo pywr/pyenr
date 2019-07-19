@@ -131,6 +131,8 @@ cdef class CythonGLPKDCOPFSolver:
 
             for some_node in graph.neighbors(bus):
                 if isinstance(some_node, Line):
+                    # (bus) <-> (some_node) <-> (other_bus)
+
                     # Add line entries
                     susceptance = 1 / some_node.reactance
                     other_bus = [b for b in graph.neighbors(some_node) if b is not bus]
@@ -294,9 +296,9 @@ cdef class CythonGLPKDCOPFSolver:
         # After solving this is always false
         self.is_first_solve = False
 
-    # @cython.boundscheck(False)
-    # @cython.initializedcheck(False)
-    # @cython.cdivision(True)
+    @cython.boundscheck(False)
+    @cython.initializedcheck(False)
+    @cython.cdivision(True)
     cdef object _solve_scenario(self, model, ScenarioIndex scenario_index):
         cdef Node gen, load, line
         cdef Storage battery
@@ -316,7 +318,7 @@ cdef class CythonGLPKDCOPFSolver:
         cdef int status, simplex_ret
         cdef cross_domain_col
         cdef list route
-        cdef int node_id, indptr, nroutes
+        cdef int node_id, indptr, nbuses
         cdef double flow
         cdef int n, m
         cdef Py_ssize_t length
@@ -332,7 +334,7 @@ cdef class CythonGLPKDCOPFSolver:
 
         t0 = time.perf_counter()
 
-        # calculate the total cost of each route
+        # calculate the total cost of each generator and load
         for col, gen in enumerate(generators):
             cost = gen.get_cost(scenario_index)
             set_obj_coef(self.prob, self.idx_col_generation+col, cost)

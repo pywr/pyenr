@@ -1,7 +1,6 @@
 {
   "metadata": {
     "title": "Simple triangular network.",
-    "description": "Time varying radiation input.",
     "minimum_version": "1.0"
   },
   "timestepper": {

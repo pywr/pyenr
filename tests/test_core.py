@@ -84,6 +84,38 @@ def test_core_with_line_capacities(simple_dcopf_model):
     np.testing.assert_allclose(m.nodes['line23'].flow, [75.0])
 
 
+def test_simple():
+
+    m = Model.load(os.path.join(TEST_FOLDER, 'models', 'simple.json'), solver='glpk-dcopf')
+
+    m.setup()
+    m.run()
+
+    np.testing.assert_allclose(m.nodes['gen1'].flow, [100.0])
+    np.testing.assert_allclose(m.nodes['gen2'].flow, [50.0])
+    np.testing.assert_allclose(m.nodes['load3'].flow, [150.0])
+
+    np.testing.assert_allclose(m.nodes['line12'].flow, [50/3])
+    np.testing.assert_allclose(m.nodes['line13'].flow, [100.0 - 50/3])
+    np.testing.assert_allclose(m.nodes['line23'].flow, [50.0 + 50/3])
+
+
+def test_simple_line_constraints():
+
+    m = Model.load(os.path.join(TEST_FOLDER, 'models', 'simple-line-constraints.json'), solver='glpk-dcopf')
+
+    m.setup()
+    m.run()
+
+    np.testing.assert_allclose(m.nodes['gen1'].flow, [25.0])
+    np.testing.assert_allclose(m.nodes['gen2'].flow, [100.0])
+    np.testing.assert_allclose(m.nodes['load3'].flow, [125.0])
+
+    np.testing.assert_allclose(m.nodes['line12'].flow, [-25.0])
+    np.testing.assert_allclose(m.nodes['line13'].flow, [50.0])
+    np.testing.assert_allclose(m.nodes['line23'].flow, [75.0])
+
+
 def test_simple_pv():
 
     m = Model.load(os.path.join(TEST_FOLDER, 'models', 'simple-pv.json'), solver='glpk-dcopf')

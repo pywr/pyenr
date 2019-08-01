@@ -1,0 +1,69 @@
+{
+  "metadata": {
+    "title": "Simple triangular network with a piecewise generator.",
+    "minimum_version": "1.0"
+  },
+  "timestepper": {
+    "start": "2019-01-01",
+    "end": "2019-02-01",
+    "timestep": "H"
+  },
+  "nodes": [
+    {
+      "name": "gen1",
+      "type": "PiecewiseGenerator",
+      "max_flow": [50, 50, 50],
+      "cost": [1.0, 2.25, 2.5]
+    },
+    {
+      "name": "gen2",
+      "type": "generator",
+      "max_flow": 100,
+      "cost": 2
+    },
+    {
+      "name": "load3",
+      "type": "load",
+      "max_flow": 150,
+      "cost": -10
+    },
+    {
+      "name": "bus1",
+      "type": "bus"
+    },
+    {
+      "name": "bus2",
+      "type": "bus"
+    },
+    {
+      "name": "bus3",
+      "type": "bus"
+    },
+    {
+      "name": "line12",
+      "type": "line",
+      "reactance": 0.1
+    },
+    {
+      "name": "line13",
+      "type": "line",
+      "reactance": 0.1
+    },
+    {
+      "name": "line23",
+      "type": "line",
+      "reactance": 0.1
+    }
+  ],
+  "edges": [
+    ["gen1", "bus1"],
+    ["gen2", "bus2"],
+    ["load3", "bus3"],
+    ["bus1", "line12"],
+    ["line12", "bus2"],
+    ["bus1", "line13"],
+    ["line13", "bus3"],
+    ["bus2", "line23"],
+    ["line23", "bus3"]
+  ]
+}

@@ -58,6 +58,49 @@ class Generator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
         return node
 
 
+class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+    def __init__(self, model, name, **kwargs):
+        self.allow_isolated = True
+        costs = kwargs.pop('cost')
+        max_flows = kwargs.pop('max_flow')
+
+        if len(costs) != len(max_flows):
+            raise ValueError("Piecewise max_flow and cost keywords must be the same length.")
+
+        # Setup internall generators
+        self.subgenerators = []
+        for i, (max_flow, cost) in enumerate(zip(max_flows, costs)):
+            generator = Generator(model, name=f'{name} Sub-generator[{i}]')
+            generator.max_flow = max_flow
+            generator.cost = cost
+            self.subgenerators.append(generator)
+
+        super().__init__(model, name, **kwargs)
+
+    def iter_slots(self, slot_name=None, is_connector=True):
+        for generator in self.subgenerators:
+            yield generator
+
+    def after(self, timestep):
+        """
+        Set total flow on this link as sum of sublinks
+        """
+        for generator in self.subgenerators:
+            self.commit_all(generator.flow)
+        # Make sure save is done after setting aggregated flow
+        super().after(timestep)
+
+    @classmethod
+    def load(cls, data, model):
+        name = data.pop('name')
+        costs = data.pop('cost')
+        max_flows = data.pop('max_flow')
+        data.pop('type')
+        costs = [load_parameter(model, c) for c in costs]
+        max_flows = [load_parameter(model, mf) for mf in max_flows]
+        return cls(model, name, cost=costs, max_flow=max_flows, **data)
+
+
 class Load(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
     @classmethod
     def load(cls, data, model):

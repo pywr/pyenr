@@ -2,67 +2,39 @@ from six import with_metaclass
 from pywr.parameters import load_parameter, pop_kwarg_parameter, load_parameter_values
 from pywr._core import AbstractNode, Node as BaseNode, Storage as BaseStorage,  StorageInput, StorageOutput
 from pywr.nodes import Node, NodeMeta, Drawable, Connectable
+from pywr.schema import NodeSchema, fields
+import marshmallow
 
 
 class Bus(with_metaclass(NodeMeta, Drawable, Connectable, AbstractNode)):
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        cost = data.pop('cost', 0.0)
-        min_flow = data.pop('min_flow', None)
-        max_flow = data.pop('max_flow', None)
-
-        data.pop('type')
-        node = cls(model=model, name=name, **data)
-
-        cost = load_parameter(model, cost)
-        min_flow = load_parameter(model, min_flow)
-        max_flow = load_parameter(model, max_flow)
-        if cost is None:
-            cost = 0.0
-        if min_flow is None:
-            min_flow = 0.0
-        if max_flow is None:
-            max_flow = 0.0
-        node.cost = cost
-        node.min_flow = min_flow
-        node.max_flow = max_flow
-
-        return node
+    class Schema(NodeSchema):
+        # The main attributes are not validated (i.e. `Raw`)
+        # They could be many different things.
+        max_flow = fields.ParameterReferenceField(allow_none=True)
+        min_flow = fields.ParameterReferenceField(allow_none=True)
+        cost = fields.ParameterReferenceField(allow_none=True)
 
 
 class Generator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        cost = data.pop('cost', 0.0)
-        min_flow = data.pop('min_flow', None)
-        max_flow = data.pop('max_flow', None)
-
-        data.pop('type')
-        node = cls(model=model, name=name, **data)
-
-        cost = load_parameter(model, cost)
-        min_flow = load_parameter(model, min_flow)
-        max_flow = load_parameter(model, max_flow)
-        if cost is None:
-            cost = 0.0
-        if min_flow is None:
-            min_flow = 0.0
-        if max_flow is None:
-            max_flow = 0.0
-        node.cost = cost
-        node.min_flow = min_flow
-        node.max_flow = max_flow
-
-        return node
+    class Schema(NodeSchema):
+        # The main attributes are not validated (i.e. `Raw`)
+        # They could be many different things.
+        max_flow = fields.ParameterReferenceField(allow_none=True)
+        min_flow = fields.ParameterReferenceField(allow_none=True)
+        cost = fields.ParameterReferenceField(allow_none=True)
 
 
 class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+    class Schema(NodeSchema):
+        # The main attributes are not validated (i.e. `Raw`)
+        # They could be many different things.
+        max_flows = marshmallow.fields.List(fields.ParameterField(allow_none=True))
+        costs = marshmallow.fields.List(fields.ParameterField(allow_none=True))
+
     def __init__(self, model, name, **kwargs):
         self.allow_isolated = True
-        costs = kwargs.pop('cost')
-        max_flows = kwargs.pop('max_flow')
+        costs = kwargs.pop('costs')
+        max_flows = kwargs.pop('max_flows')
 
         if len(costs) != len(max_flows):
             raise ValueError("Piecewise max_flow and cost keywords must be the same length.")
@@ -90,63 +62,27 @@ class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNod
         # Make sure save is done after setting aggregated flow
         super().after(timestep)
 
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        costs = data.pop('cost')
-        max_flows = data.pop('max_flow')
-        data.pop('type')
-        costs = [load_parameter(model, c) for c in costs]
-        max_flows = [load_parameter(model, mf) for mf in max_flows]
-        return cls(model, name, cost=costs, max_flow=max_flows, **data)
-
 
 class Load(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        cost = data.pop('cost', 0.0)
-        min_flow = data.pop('min_flow', None)
-        max_flow = data.pop('max_flow', None)
-
-        data.pop('type')
-        node = cls(model=model, name=name, **data)
-
-        cost = load_parameter(model, cost)
-        min_flow = load_parameter(model, min_flow)
-        max_flow = load_parameter(model, max_flow)
-        if cost is None:
-            cost = 0.0
-        if min_flow is None:
-            min_flow = 0.0
-        if max_flow is None:
-            max_flow = 0.0
-        node.cost = cost
-        node.min_flow = min_flow
-        node.max_flow = max_flow
-
-        return node
+    class Schema(NodeSchema):
+        # The main attributes are not validated (i.e. `Raw`)
+        # They could be many different things.
+        max_flow = fields.ParameterReferenceField(allow_none=True)
+        min_flow = fields.ParameterReferenceField(allow_none=True)
+        cost = fields.ParameterReferenceField(allow_none=True)
 
 
 class Line(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+    class Schema(NodeSchema):
+        # The main attributes are not validated (i.e. `Raw`)
+        # They could be many different things.
+        max_flow = fields.ParameterReferenceField(allow_none=True)
+        reactance = marshmallow.fields.Number()
+        cost = fields.ParameterReferenceField(allow_none=True)
 
     def __init__(self, *args, **kwargs):
         self.reactance = kwargs.pop('reactance', 0.1)
         super().__init__(*args, **kwargs)
-
-
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        data.pop('type')
-        max_flow = data.pop('max_flow', None)
-        node = cls(model=model, name=name, **data)
-
-        max_flow = load_parameter(model, max_flow)
-        if max_flow is not None:
-            node.max_flow = max_flow
-
-        return node
 
 
 class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
@@ -157,7 +93,7 @@ class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
     multiple sub-nodes the connections need to be explicit about which they
     are connecting to. For example:
 
-    >>> storage(model, 'reservoir', num_outputs=1, num_inputs=2)
+    >>> storage(model, 'reservoir', outputs=1, inputs=2)
     >>> supply.connect(storage)
     >>> storage.connect(demand1, from_slot=0)
     >>> storage.connect(demand2, from_slot=1)
@@ -171,11 +107,22 @@ class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
     records changes in storage. Any recorders set on the output or input
     sub-nodes record flow as normal.
     """
-    def __init__(self, model, name, num_outputs=1, num_inputs=1, *args, **kwargs):
+    class Schema(NodeSchema):
+        # The main attributes are not validated (i.e. `Raw`)
+        # They could be many different things.
+        max_volume = fields.ParameterReferenceField(required=False)
+        min_volume = fields.ParameterReferenceField(required=False)
+        cost = fields.ParameterReferenceField(required=False)
+        initial_volume = fields.ParameterValuesField(required=False)
+        initial_volume_pc = marshmallow.fields.Number(required=False)
+        inputs = marshmallow.fields.Integer(required=False, default=1)
+        outputs = marshmallow.fields.Integer(required=False, default=1)
+
+    def __init__(self, model, name, outputs=1, inputs=1, *args, **kwargs):
         # cast number of inputs/outputs to integer
         # this is needed if values come in as strings sometimes
-        num_outputs = int(num_outputs)
-        num_inputs = int(num_inputs)
+        outputs = int(outputs)
+        inputs = int(inputs)
 
         min_volume = pop_kwarg_parameter(kwargs, 'min_volume', 0.0)
         if min_volume is None:
@@ -191,11 +138,11 @@ class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
 
         # TODO this doesn't need multiple inputs and outputs
         self.outputs = []
-        for n in range(0, num_outputs):
+        for n in range(0, outputs):
             self.outputs.append(StorageOutput(model, name="[output{}]".format(n), parent=self))
 
         self.inputs = []
-        for n in range(0, num_inputs):
+        for n in range(0, inputs):
             self.inputs.append(StorageInput(model, name="[input{}]".format(n), parent=self))
 
         self.min_volume = min_volume
@@ -213,48 +160,3 @@ class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
             self.model.graph.add_node(node)
         for node in self.inputs:
             self.model.graph.add_node(node)
-
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        num_inputs = int(data.pop('inputs', 1))
-        num_outputs = int(data.pop('outputs', 1))
-
-        if 'initial_volume' not in data and 'initial_volume_pc' not in data:
-            raise ValueError('Initial volume must be specified in absolute or relative terms.')
-
-        initial_volume = data.pop('initial_volume', 0.0)
-        initial_volume_pc = data.pop('initial_volume_pc', None)
-        max_volume = data.pop('max_volume')
-        min_volume = data.pop('min_volume', 0.0)
-        cost = data.pop('cost', 0.0)
-
-        data.pop('type', None)
-        # Create the instance
-        node = cls(model=model, name=name, num_inputs=num_inputs, num_outputs=num_outputs, **data)
-
-        # Load the parameters after the instance has been created to prevent circular
-        # loading errors
-
-        # Try to coerce initial volume to float.
-        try:
-            initial_volume = float(initial_volume)
-        except TypeError:
-            initial_volume = load_parameter_values(model, initial_volume)
-        node.initial_volume = initial_volume
-        node.initial_volume_pc = initial_volume_pc
-
-        max_volume = load_parameter(model, max_volume)
-        if max_volume is not None:
-            node.max_volume = max_volume
-
-        min_volume = load_parameter(model, min_volume)
-        if min_volume is not None:
-            node.min_volume = min_volume
-
-        cost = load_parameter(model, cost)
-        if cost is None:
-            cost = 0.0
-        node.cost = cost
-
-        return node

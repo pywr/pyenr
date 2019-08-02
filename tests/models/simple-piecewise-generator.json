@@ -12,8 +12,8 @@
     {
       "name": "gen1",
       "type": "PiecewiseGenerator",
-      "max_flow": [50, 50, 50],
-      "cost": [1.0, 2.25, 2.5]
+      "max_flows": [50, 50, 50],
+      "costs": [1.0, 2.25, 2.5]
     },
     {
       "name": "gen2",

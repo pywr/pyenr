@@ -60,3 +60,9 @@ target/
 
 # vscode
 .vscode/
+
+build.bat
+build.txt
+tests/Leap_Second.dat
+tests/deltat.data
+tests/deltat.preds

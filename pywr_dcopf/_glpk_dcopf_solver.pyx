@@ -152,7 +152,7 @@ cdef class CythonGLPKDCOPFSolver:
                     cols[self.idx_col_phase + other_ibus] += susceptance
                     # Add loss to bus power balance
                     cols[self.idx_col_line_losses + iloss] += -1.0
-                    print(ibus, bus, some_node, iloss)
+                    # print(ibus, bus, some_node, iloss)
                     # Create a constraint for loss coming into bus from other_bus
                     ind = <int*>malloc(4 * sizeof(int))
                     val = <double*>malloc(4 * sizeof(double))

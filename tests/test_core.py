@@ -155,6 +155,16 @@ def test_simple_losses():
     np.testing.assert_allclose(m.nodes['line13'].flow, [100.0 - 100/9])
     np.testing.assert_allclose(m.nodes['line23'].flow, [gen2 + 100/9 - line12_losses])
 
+def test_basic_losses():
+
+    m = Model.load(os.path.join(TEST_FOLDER,'models','basic-losses.json'), solver='glpk-dcopf')
+
+    m.setup()
+    m.run()
+
+    np.testing.assert_allclose(m.nodes['gen1'].flow,[50])
+    np.testing.assert_allclose(m.nodes['gen2'].flow,[100])
+    np.testing.assert_allclose(m.nodes['load1'].flow,[15])
 
 def test_simple_pv():
 

@@ -132,6 +132,40 @@ def test_simple_piecewise_generator():
     np.testing.assert_allclose(m.nodes['line23'].flow, [100.0 - 50/3])
 
 
+def test_simple_losses():
+
+    m = Model.load(os.path.join(TEST_FOLDER, 'models', 'simple-losses.json'), solver='glpk-dcopf')
+
+    m.setup()
+    m.run()
+
+    # Gen1 losses
+    line12_losses = 0.1 * 100/9
+    line13_losses = 0.1 * (100 - 100/9)
+    line23_losses = 0.1 * (100/9 - line12_losses)
+    gen1_losses = line12_losses + line13_losses + line23_losses
+
+    gen2 = (150 - 100 + gen1_losses) / (1 - 0.1)
+
+    np.testing.assert_allclose(m.nodes['gen1'].flow, [100.0])
+    np.testing.assert_allclose(m.nodes['gen2'].flow, [gen2])
+    np.testing.assert_allclose(m.nodes['load3'].flow, [150.0])
+
+    np.testing.assert_allclose(m.nodes['line12'].flow, [100/9])
+    np.testing.assert_allclose(m.nodes['line13'].flow, [100.0 - 100/9])
+    np.testing.assert_allclose(m.nodes['line23'].flow, [gen2 + 100/9 - line12_losses])
+
+def test_basic_losses():
+
+    m = Model.load(os.path.join(TEST_FOLDER,'models','basic-losses.json'), solver='glpk-dcopf')
+
+    m.setup()
+    m.run()
+
+    np.testing.assert_allclose(m.nodes['gen1'].flow,[50])
+    np.testing.assert_allclose(m.nodes['gen2'].flow,[100])
+    np.testing.assert_allclose(m.nodes['load1'].flow,[15])
+
 def test_simple_pv():
 
     m = Model.load(os.path.join(TEST_FOLDER, 'models', 'simple-pv.json'), solver='glpk-dcopf')

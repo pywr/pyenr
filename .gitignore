@@ -61,8 +61,16 @@ target/
 # vscode
 .vscode/
 
+<<<<<<< HEAD
+=======
+# .bat
+>>>>>>> 03b261d5853913cb8e9618918328094625ced6f9
 build.bat
 build.txt
 tests/Leap_Second.dat
 tests/deltat.data
+<<<<<<< HEAD
 tests/deltat.preds
+=======
+tests/deltat.preds
+>>>>>>> 03b261d5853913cb8e9618918328094625ced6f9

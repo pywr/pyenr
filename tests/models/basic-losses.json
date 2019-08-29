@@ -1,0 +1,52 @@
+{
+  "metadata": {
+    "title": "Simple triangular network.",
+    "minimum_version": "1.0"
+  },
+  "timestepper": {
+    "start": "2019-01-01",
+    "end": "2019-01-02",
+    "timestep": "H"
+  },
+  "nodes": [
+    {
+      "name": "gen1",
+      "type": "generator",
+      "max_flow": 50,
+      "cost": 1
+    },
+    {
+      "name": "gen2",
+      "type": "generator",
+      "max_flow": 100,
+      "cost": 2
+    },
+    {
+      "name": "load1",
+      "type": "load",
+      "max_flow": 150,
+      "cost": -10
+    },
+    {
+      "name": "bus1",
+      "type": "bus"
+    },
+    {
+      "name": "bus2",
+      "type": "bus"
+    },
+    {
+      "name": "line12",
+      "type": "line",
+      "reactance": 0.1,
+      "loss": 0.15
+    }
+  ],
+  "edges": [
+    ["gen1", "bus1"],
+    ["gen2", "bus2"],
+    ["bus1", "load1"],
+    ["bus1", "line12"],
+    ["line12", "bus2"]
+  ]
+}

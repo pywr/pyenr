@@ -132,6 +132,7 @@ class Line(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
 
     def __init__(self, *args, **kwargs):
         self.reactance = kwargs.pop('reactance', 0.1)
+        self.loss = kwargs.pop('loss', 0.0)
         super().__init__(*args, **kwargs)
 
 

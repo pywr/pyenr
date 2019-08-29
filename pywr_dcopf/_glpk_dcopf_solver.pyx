@@ -23,8 +23,10 @@ cdef class CythonGLPKDCOPFSolver:
     cdef int idx_col_generation
     cdef int idx_col_load
     cdef int idx_col_phase
+    cdef int idx_col_line_losses
     cdef int idx_row_power_flow
     cdef int idx_row_line_capacity
+    cdef int idx_row_line_losses
     cdef int idx_row_batteries
 
     cdef public list buses
@@ -106,7 +108,6 @@ cdef class CythonGLPKDCOPFSolver:
                 for load in some_node.outputs:
                     loads.append(load)
 
-
         # clear the previous problem
         glp_erase_prob(self.prob)
         glp_set_obj_dir(self.prob, GLP_MIN)
@@ -114,6 +115,8 @@ cdef class CythonGLPKDCOPFSolver:
         self.idx_col_generation = glp_add_cols(self.prob, <int>(len(generators)))
         self.idx_col_load = glp_add_cols(self.prob, <int>(len(loads)))
         self.idx_col_phase = glp_add_cols(self.prob, <int>(len(buses)))
+        # Two loss columns (+/-) for each line
+        self.idx_col_line_losses = glp_add_cols(self.prob, <int>(2*len(lines)))
 
         # explicitly set bounds on route and demand columns
         for col, route in enumerate(generators):
@@ -123,9 +126,13 @@ cdef class CythonGLPKDCOPFSolver:
         for col, route in enumerate(buses):
             # TODO what should the bounds constraints on the buses be??
             set_col_bnds(self.prob, self.idx_col_phase+col, GLP_LO, 0.0, DBL_MAX)
+        for col in range(2*len(lines)):
+            set_col_bnds(self.prob, self.idx_col_line_losses+col, GLP_LO, 0.0, DBL_MAX)
 
         # Power flow constraints
         self.idx_row_power_flow = glp_add_rows(self.prob, len(buses))
+        self.idx_row_line_losses = glp_add_rows(self.prob, 2*len(lines))
+        iloss = 0
         for ibus, bus in enumerate(buses):
             cols = defaultdict(lambda: 0.0)
 
@@ -143,6 +150,26 @@ cdef class CythonGLPKDCOPFSolver:
 
                     cols[self.idx_col_phase + ibus] += -susceptance
                     cols[self.idx_col_phase + other_ibus] += susceptance
+                    # Add loss to bus power balance
+                    cols[self.idx_col_line_losses + iloss] += -1.0
+                    # print(ibus, bus, some_node, iloss)
+                    # Create a constraint for loss coming into bus from other_bus
+                    ind = <int*>malloc(4 * sizeof(int))
+                    val = <double*>malloc(4 * sizeof(double))
+                    # Loss > line flow
+                    ind[1] = self.idx_col_line_losses + iloss
+                    val[1] = -1.0
+                    ind[2] = self.idx_col_phase + ibus
+                    val[2] = -susceptance * some_node.loss
+                    ind[3] = self.idx_col_phase + other_ibus
+                    val[3] = susceptance * some_node.loss
+
+                    set_mat_row(self.prob, self.idx_row_line_losses+iloss, 3, ind, val)
+                    set_row_bnds(self.prob, self.idx_row_line_losses+iloss, GLP_UP, 0.0, 0.0)
+                    free(ind)
+                    free(val)
+                    iloss += 1
+
                 elif isinstance(some_node, Generator):
                     igen = generators.index(some_node)
                     cols[self.idx_col_generation+igen] += 1.0
@@ -457,8 +484,6 @@ cdef class CythonGLPKDCOPFSolver:
         for row, line in enumerate(lines):
             l = glp_get_row_prim(self.prob, self.idx_row_line_capacity+row)
             line.commit(scenario_index.global_id, l)
-
-
 
     cpdef dump_mps(self, filename):
         glp_write_mps(self.prob, GLP_MPS_FILE, NULL, filename)

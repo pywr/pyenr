@@ -164,7 +164,7 @@ def test_basic_losses():
 
     np.testing.assert_allclose(m.nodes['gen1'].flow,[50])
     np.testing.assert_allclose(m.nodes['gen2'].flow,[100])
-    np.testing.assert_allclose(m.nodes['load1'].flow,[15])
+    np.testing.assert_allclose(m.nodes['load1'].flow,[135])
 
 def test_simple_pv():
 

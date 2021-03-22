@@ -42,7 +42,8 @@ setup_kwargs = {
         'packaging',
         'matplotlib',
         'jinja2',
-        'marshmallow'
+        'marshmallow',
+        'skyfield>=1.14'
     ]
 }
 

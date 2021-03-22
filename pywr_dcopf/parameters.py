@@ -1,7 +1,7 @@
 from pywr.parameters import Parameter, load_parameter
 import numpy as np
 from skyfield import api as skyfield_api
-skyfield_ts = skyfield_api.load.timescale()
+skyfield_ts = skyfield_api.load.timescale(builtin=True)
 
 
 class SolarGenerationParameter(Parameter):

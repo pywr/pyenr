@@ -74,3 +74,8 @@ tests/deltat.preds
 =======
 tests/deltat.preds
 >>>>>>> 03b261d5853913cb8e9618918328094625ced6f9
+
+# Files from skyfield
+deltat.data
+deltat.preds
+Leap_Second.dat

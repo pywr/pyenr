@@ -422,8 +422,8 @@ cdef class CythonGLPKDCOPFSolver:
                 avail_volume = max(battery._volume[scenario_index.global_id] - min_volume, 0.0)
                 # change in battery cannot be more than the current volume or
                 # result in maximum volume being exceeded
-                lb = -avail_volume/timestep.days
-                ub = max(max_volume - battery._volume[scenario_index.global_id], 0.0) / timestep.days
+                lb = -avail_volume
+                ub = max(max_volume - battery._volume[scenario_index.global_id], 0.0)
 
                 if abs(lb) < 1e-8:
                     lb = 0.0

@@ -1,6 +1,8 @@
+import numpy as np
+
 from six import with_metaclass
 from pywr.parameters import load_parameter, pop_kwarg_parameter, load_parameter_values
-from pywr._core import AbstractNode, Node as BaseNode, Storage as BaseStorage,  StorageInput, StorageOutput
+from pywr._core import AbstractNode, Node as BaseNode, Storage as BaseStorage,  StorageInput, StorageOutput, AbstractStorage
 from pywr.nodes import Node, NodeMeta, Drawable, Connectable
 
 
@@ -214,6 +216,26 @@ class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
             self.model.graph.add_node(node)
         for node in self.inputs:
             self.model.graph.add_node(node)
+
+    def after(self, ts):
+        AbstractStorage.after(self, ts)
+
+        for i, si in enumerate(self.model.scenarios.combinations):
+            self._volume[i] += self.flow[i]
+            # Ensure variable maximum volume is taken in to account
+
+            mxv = self.get_max_volume(si)
+            mnv = self.get_min_volume(si)
+
+            if abs(self._volume[i] - mxv) < 1e-6:
+                self._volume[i] = mxv
+            if abs(self._volume[i] - mnv) < 1e-6:
+                self._volume[i] = mnv
+
+            try:
+                self._current_pc[i] = self._volume[i] / mxv
+            except ZeroDivisionError:
+                self._current_pc[i] = np.nan
 
     @classmethod
     def load(cls, data, model):

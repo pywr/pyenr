@@ -3,10 +3,38 @@ import numpy as np
 from six import with_metaclass
 from pywr.parameters import load_parameter, pop_kwarg_parameter, load_parameter_values
 from pywr._core import AbstractNode, Node as BaseNode, Storage as BaseStorage,  StorageInput, StorageOutput, AbstractStorage
-from pywr.nodes import Node, NodeMeta, Drawable, Connectable
+from pywr.nodes import (
+    NodeMeta,
+    Drawable,
+    Connectable,
+    Loadable
+)
 
 
-class Bus(with_metaclass(NodeMeta, Drawable, Connectable, AbstractNode)):
+class Bus(BaseNode, Loadable, Drawable, Connectable, metaclass=NodeMeta):
+
+    def __init__(self, model, name, *args, **kwargs):
+        max_flow = kwargs.pop("max_flow", None)
+        min_flow = kwargs.pop("min_flow", None)
+        cost = kwargs.pop("cost", None)
+        super().__init__(model, name, *args, **kwargs)
+
+        cost = load_parameter(model, cost)
+        min_flow = load_parameter(model, min_flow)
+        max_flow = load_parameter(model, max_flow)
+
+        if cost is None:
+            cost = 0.0
+        if min_flow is None:
+            min_flow = 0.0
+        if max_flow is None:
+            max_flow = 0.0
+
+        self.cost = cost
+        self.min_flow = min_flow
+        self.max_flow = max_flow
+
+
     @classmethod
     def load(cls, data, model):
         name = data.pop('name')
@@ -33,9 +61,33 @@ class Bus(with_metaclass(NodeMeta, Drawable, Connectable, AbstractNode)):
         return node
 
 
-class Generator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+class Generator(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
+
+    def __init__(self, model, name, *args, **kwargs):
+        max_flow = kwargs.pop("max_flow", None)
+        min_flow = kwargs.pop("min_flow", None)
+        cost = kwargs.pop("cost", None)
+        super().__init__(model, name, *args, **kwargs)
+
+        cost = load_parameter(model, cost)
+        min_flow = load_parameter(model, min_flow)
+        max_flow = load_parameter(model, max_flow)
+
+        if cost is None:
+            cost = 0.0
+        if min_flow is None:
+            min_flow = 0.0
+        if max_flow is None:
+            max_flow = 0.0
+
+        self.cost = cost
+        self.min_flow = min_flow
+        self.max_flow = max_flow
+
+
     @classmethod
     def load(cls, data, model):
+        print("*** Generator.load ***")
         name = data.pop('name')
         cost = data.pop('cost', 0.0)
         min_flow = data.pop('min_flow', None)
@@ -60,7 +112,8 @@ class Generator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
         return node
 
 
-class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+class PiecewiseGenerator(BaseNode, Loadable, Drawable, Connectable, metaclass=NodeMeta):
+
     def __init__(self, model, name, **kwargs):
         self.allow_isolated = True
         costs = kwargs.pop('cost')
@@ -69,7 +122,7 @@ class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNod
         if len(costs) != len(max_flows):
             raise ValueError("Piecewise max_flow and cost keywords must be the same length.")
 
-        # Setup internall generators
+        # Setup internal generators
         self.subgenerators = []
         for i, (max_flow, cost) in enumerate(zip(max_flows, costs)):
             generator = Generator(model, name=f'{name} Sub-generator[{i}]')
@@ -103,7 +156,30 @@ class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNod
         return cls(model, name, cost=costs, max_flow=max_flows, **data)
 
 
-class Load(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+class Load(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
+
+    def __init__(self, model, name, **kwargs):
+        min_flow = kwargs.pop('min_flow', None)
+        max_flow = kwargs.pop('max_flow', None)
+        cost = kwargs.pop('cost', None)
+        super().__init__( model, name, **kwargs)
+
+        cost = load_parameter(model, cost)
+        min_flow = load_parameter(model, min_flow)
+        max_flow = load_parameter(model, max_flow)
+
+        if cost is None:
+            cost = 0.0
+        if min_flow is None:
+            min_flow = 0.0
+        if max_flow is None:
+            max_flow = 0.0
+
+        self.cost = cost
+        self.min_flow = min_flow
+        self.max_flow = max_flow
+
+
     @classmethod
     def load(cls, data, model):
         name = data.pop('name')
@@ -130,12 +206,17 @@ class Load(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
         return node
 
 
-class Line(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+class Line(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, model, name, *args, **kwargs):
         self.reactance = kwargs.pop('reactance', 0.1)
         self.loss = kwargs.pop('loss', 0.0)
-        super().__init__(*args, **kwargs)
+        max_flow = kwargs.pop('max_flow', None)
+        super().__init__(model, name, *args, **kwargs)
+
+        max_flow = load_parameter(model, max_flow)
+        if max_flow is not None:
+            self.max_flow = max_flow
 
 
     @classmethod
@@ -152,8 +233,8 @@ class Line(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
         return node
 
 
-class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
-    """A generic storage Node
+class Battery(BaseStorage, Loadable, Connectable, Drawable, metaclass=NodeMeta):
+    """  A generic storage Node
 
     In terms of connections in the network the Storage node behaves like any
     other node, provided there is only 1 input and 1 output. If there are

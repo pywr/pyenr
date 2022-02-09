@@ -11,26 +11,10 @@ import sys
 import logging
 logger = logging.getLogger(__name__)
 
-import networkx as nx
-from pywr._core import BaseInput, BaseOutput, BaseLink
-
-from pywr.solvers import solver_registry
 
 def main(filename):
     base, ext = os.path.splitext(filename)
-    print(filename)
     m = Model.load(filename, solver='glpk-dcopf')
-
-    print(m.solver)
-
-    bus2 = m.nodes["bus2"]
-    print(f"{isinstance(bus2, BaseLink)=}")
-
-    routes = nx.all_simple_paths(m.graph, m.nodes["pv2"], m.nodes["load2"])
-    print([*routes])
-    #routes = nx.all_simple_paths(m.graph, BaseInput, BaseOutput)
-    routes = m.find_all_routes(BaseInput, BaseOutput, valid=(BaseLink, BaseInput, BaseOutput))
-    print([*routes])
 
     gen1 = NumpyArrayNodeRecorder(m, m.nodes['gen1'])
     pv2 = NumpyArrayNodeRecorder(m, m.nodes['pv2'])

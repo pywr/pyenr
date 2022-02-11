@@ -238,5 +238,5 @@ def test_battery_volume_percentage():
     }, axis=1)
 
     assert df.shape[0] == 745
-    assert np.isclose(df.loc["2001-01-02"].iloc[-3]["gen1"][0], 114.58)
-    assert np.isclose(df.loc["2001-01-02"].iloc[-4]["AAA"][0], 85.42)
+    assert np.isclose(df.loc[pandas.Period('2001-01-02 20:00', 'H')].loc["AAA", 0], 85.42)
+    assert np.isclose(df.loc[pandas.Period('2001-01-02 21:00', 'H')].loc["gen1", 0], 114.58)

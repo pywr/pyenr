@@ -40,6 +40,7 @@ class Bus(BaseNode, Loadable, Drawable, Connectable, metaclass=NodeMeta):
         max_flow = kwargs.pop("max_flow", None)
         min_flow = kwargs.pop("min_flow", None)
         cost = kwargs.pop("cost", None)
+        kwargs.pop("position", None)
         super().__init__(model, name, *args, **kwargs)
 
         cost = load_parameter(model, cost)
@@ -64,6 +65,7 @@ class Generator(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
         max_flow = kwargs.pop("max_flow", None)
         min_flow = kwargs.pop("min_flow", None)
         cost = kwargs.pop("cost", None)
+        kwargs.pop("position", None)
         super().__init__(model, name, *args, **kwargs)
 
         cost = load_parameter(model, cost)
@@ -88,6 +90,7 @@ class PiecewiseGenerator(BaseNode, Loadable, Drawable, Connectable, metaclass=No
         self.allow_isolated = True
         costs = kwargs.pop('cost')
         max_flows = kwargs.pop('max_flow')
+        kwargs.pop("position", None)
 
         if len(costs) != len(max_flows):
             raise ValueError("Piecewise max_flow and cost keywords must be the same length.")
@@ -120,6 +123,7 @@ class Load(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
         min_flow = kwargs.pop('min_flow', None)
         max_flow = kwargs.pop('max_flow', None)
         cost = kwargs.pop('cost', None)
+        kwargs.pop("position", None)
         super().__init__(model, name, **kwargs)
 
         cost = load_parameter(model, cost)
@@ -146,6 +150,7 @@ class Line(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
         self.reactance = kwargs.pop('reactance', Line.default_reactance)
         self.loss = kwargs.pop('loss', 0.0)
         max_flow = kwargs.pop('max_flow', None)
+        kwargs.pop("position", None)
         super().__init__(model, name, *args, **kwargs)
 
         max_flow = load_parameter(model, max_flow)

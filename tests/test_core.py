@@ -217,3 +217,26 @@ def test_simple_battery():
 
     assert df.shape[0] == 745
     # TODO add better assertions
+
+
+def test_battery_volume_percentage():
+    """
+        Tests initial_volume_pc attr of Battery
+    """
+
+    m = Model.load(os.path.join(TEST_FOLDER, 'models', 'simple-pv-battery.json'), solver='glpk-dcopf')
+
+    gen1 = NumpyArrayNodeRecorder(m, m.nodes['gen1'])
+    battery1 = NumpyArrayStorageRecorder(m, m.nodes['AAA'])
+
+    m.setup()
+    m.run()
+
+    df = pandas.concat({
+        'gen1': gen1.to_dataframe(),
+        'AAA': battery1.to_dataframe()
+    }, axis=1)
+
+    assert df.shape[0] == 745
+    assert np.isclose(df.loc[pandas.Period('2001-01-02 20:00', 'H')].loc["AAA", 0], 85.42)
+    assert np.isclose(df.loc[pandas.Period('2001-01-02 21:00', 'H')].loc["gen1", 0], 114.58)

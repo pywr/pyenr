@@ -33,7 +33,7 @@ simplex_status_string = [
     'result out of range',
 ]
 
-cdef int term_hook(void *info, const char *s):
+cdef int term_hook(void *info, const char *s) noexcept:
     """ Callback function to print GLPK messages through Python's print function """
     # TODO make this use logging.
     message = s.strip().decode('UTF-8')

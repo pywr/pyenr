@@ -1,75 +1,101 @@
+"""
+  This module defines types used by the glpk-dcopf solver.
+"""
 import numpy as np
 
-from six import with_metaclass
-from pywr.parameters import load_parameter, pop_kwarg_parameter, load_parameter_values
-from pywr._core import AbstractNode, Node as BaseNode, Storage as BaseStorage,  StorageInput, StorageOutput, AbstractStorage
-from pywr.nodes import Node, NodeMeta, Drawable, Connectable
+from pywr.parameters import (
+    load_parameter,
+    pop_kwarg_parameter,
+    load_parameter_values
+)
+
+from pywr.nodes import (
+    NodeMeta,
+    Drawable,
+    Connectable,
+    Loadable
+)
+
+from pywr._core import (
+    Node as BaseNode,
+    Storage as BaseStorage,
+    StorageInput,
+    StorageOutput,
+    AbstractStorage
+)
+
+__all__ = (
+    "Battery",
+    "Bus",
+    "Generator",
+    "Line",
+    "Load",
+    "PiecewiseGenerator"
+)
 
 
-class Bus(with_metaclass(NodeMeta, Drawable, Connectable, AbstractNode)):
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        cost = data.pop('cost', 0.0)
-        min_flow = data.pop('min_flow', None)
-        max_flow = data.pop('max_flow', None)
+class Bus(BaseNode, Loadable, Drawable, Connectable, metaclass=NodeMeta):
 
-        data.pop('type')
-        node = cls(model=model, name=name, **data)
+    def __init__(self, model, name, *args, **kwargs):
+        max_flow = kwargs.pop("max_flow", None)
+        min_flow = kwargs.pop("min_flow", None)
+        cost = kwargs.pop("cost", None)
+        kwargs.pop("position", None)
+        super().__init__(model, name, *args, **kwargs)
 
         cost = load_parameter(model, cost)
         min_flow = load_parameter(model, min_flow)
         max_flow = load_parameter(model, max_flow)
+
         if cost is None:
             cost = 0.0
         if min_flow is None:
             min_flow = 0.0
         if max_flow is None:
             max_flow = 0.0
-        node.cost = cost
-        node.min_flow = min_flow
-        node.max_flow = max_flow
 
-        return node
+        self.cost = cost
+        self.min_flow = min_flow
+        self.max_flow = max_flow
 
 
-class Generator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        cost = data.pop('cost', 0.0)
-        min_flow = data.pop('min_flow', None)
-        max_flow = data.pop('max_flow', None)
+class Generator(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
 
-        data.pop('type')
-        node = cls(model=model, name=name, **data)
+    def __init__(self, model, name, *args, **kwargs):
+        max_flow = kwargs.pop("max_flow", None)
+        min_flow = kwargs.pop("min_flow", None)
+        cost = kwargs.pop("cost", None)
+        kwargs.pop("position", None)
+        super().__init__(model, name, *args, **kwargs)
 
         cost = load_parameter(model, cost)
         min_flow = load_parameter(model, min_flow)
         max_flow = load_parameter(model, max_flow)
+
         if cost is None:
             cost = 0.0
         if min_flow is None:
             min_flow = 0.0
         if max_flow is None:
             max_flow = 0.0
-        node.cost = cost
-        node.min_flow = min_flow
-        node.max_flow = max_flow
 
-        return node
+        self.cost = cost
+        self.min_flow = min_flow
+        self.max_flow = max_flow
 
 
-class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
-    def __init__(self, model, name, **kwargs):
+class PiecewiseGenerator(BaseNode, Loadable, Drawable, Connectable, metaclass=NodeMeta):
+
+    def __init__(self, model, name, *args, **kwargs):
         self.allow_isolated = True
         costs = kwargs.pop('cost')
         max_flows = kwargs.pop('max_flow')
+        kwargs.pop("position", None)
 
         if len(costs) != len(max_flows):
             raise ValueError("Piecewise max_flow and cost keywords must be the same length.")
 
-        # Setup internall generators
+        # Setup internal generators
         self.subgenerators = []
         for i, (max_flow, cost) in enumerate(zip(max_flows, costs)):
             generator = Generator(model, name=f'{name} Sub-generator[{i}]')
@@ -77,120 +103,109 @@ class PiecewiseGenerator(with_metaclass(NodeMeta, Drawable, Connectable, BaseNod
             generator.cost = cost
             self.subgenerators.append(generator)
 
-        super().__init__(model, name, **kwargs)
+        super().__init__(model, name, *args, **kwargs)
 
     def iter_slots(self, slot_name=None, is_connector=True):
         for generator in self.subgenerators:
             yield generator
 
-    def after(self, timestep):
-        """
-        Set total flow on this link as sum of sublinks
-        """
+    def after(self, timestep, adjustment=None):
+        """  Set total flow on this link as sum of sublinks """
         for generator in self.subgenerators:
             self.commit_all(generator.flow)
         # Make sure save is done after setting aggregated flow
         super().after(timestep)
 
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        costs = data.pop('cost')
-        max_flows = data.pop('max_flow')
-        data.pop('type')
-        costs = [load_parameter(model, c) for c in costs]
-        max_flows = [load_parameter(model, mf) for mf in max_flows]
-        return cls(model, name, cost=costs, max_flow=max_flows, **data)
 
+class Load(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
 
-class Load(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        cost = data.pop('cost', 0.0)
-        min_flow = data.pop('min_flow', None)
-        max_flow = data.pop('max_flow', None)
-
-        data.pop('type')
-        node = cls(model=model, name=name, **data)
+    def __init__(self, model, name, **kwargs):
+        min_flow = kwargs.pop('min_flow', None)
+        max_flow = kwargs.pop('max_flow', None)
+        cost = kwargs.pop('cost', None)
+        kwargs.pop("position", None)
+        super().__init__(model, name, **kwargs)
 
         cost = load_parameter(model, cost)
         min_flow = load_parameter(model, min_flow)
         max_flow = load_parameter(model, max_flow)
+
         if cost is None:
             cost = 0.0
         if min_flow is None:
             min_flow = 0.0
         if max_flow is None:
             max_flow = 0.0
-        node.cost = cost
-        node.min_flow = min_flow
-        node.max_flow = max_flow
 
-        return node
+        self.cost = cost
+        self.min_flow = min_flow
+        self.max_flow = max_flow
 
 
-class Line(with_metaclass(NodeMeta, Drawable, Connectable, BaseNode)):
+class Line(BaseNode, Loadable, Connectable, Drawable, metaclass=NodeMeta):
 
-    def __init__(self, *args, **kwargs):
-        self.reactance = kwargs.pop('reactance', 0.1)
+    default_reactance = 0.1
+
+    def __init__(self, model, name, *args, **kwargs):
+        self.reactance = kwargs.pop('reactance', Line.default_reactance)
         self.loss = kwargs.pop('loss', 0.0)
-        super().__init__(*args, **kwargs)
-
-
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        data.pop('type')
-        max_flow = data.pop('max_flow', None)
-        node = cls(model=model, name=name, **data)
+        max_flow = kwargs.pop('max_flow', None)
+        kwargs.pop("position", None)
+        super().__init__(model, name, *args, **kwargs)
 
         max_flow = load_parameter(model, max_flow)
         if max_flow is not None:
-            node.max_flow = max_flow
-
-        return node
+            self.max_flow = max_flow
 
 
-class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
-    """A generic storage Node
+class Battery(BaseStorage, Loadable, Connectable, Drawable, metaclass=NodeMeta):
+    """ Shares the behaviour of a generic Storage Node.
 
-    In terms of connections in the network the Storage node behaves like any
-    other node, provided there is only 1 input and 1 output. If there are
-    multiple sub-nodes the connections need to be explicit about which they
-    are connecting to. For example:
+        In terms of connections in the network the Storage node behaves like any
+        other node, provided there is only 1 input and 1 output. If there are
+        multiple sub-nodes the connections need to be explicit about which they
+        are connecting to. For example:
 
-    >>> storage(model, 'reservoir', num_outputs=1, num_inputs=2)
-    >>> supply.connect(storage)
-    >>> storage.connect(demand1, from_slot=0)
-    >>> storage.connect(demand2, from_slot=1)
+        >>> storage(model, 'reservoir', num_outputs=1, num_inputs=2)
+        >>> supply.connect(storage)
+        >>> storage.connect(demand1, from_slot=0)
+        >>> storage.connect(demand2, from_slot=1)
 
-    The attribtues of the sub-nodes can be modified directly (and
-    independently). For example:
+        The attributes of the sub-nodes can be modified directly (and
+        independently). For example:
 
-    >>> storage.outputs[0].max_flow = 15.0
+        >>> storage.outputs[0].max_flow = 15.0
 
-    If a recorder is set on the storage node, instead of recording flow it
-    records changes in storage. Any recorders set on the output or input
-    sub-nodes record flow as normal.
+        If a recorder is set on the storage node, instead of recording flow it
+        records changes in storage. Any recorders set on the output or input
+        sub-nodes record flow as normal.
     """
     def __init__(self, model, name, num_outputs=1, num_inputs=1, *args, **kwargs):
-        # cast number of inputs/outputs to integer
-        # this is needed if values come in as strings sometimes
-        num_outputs = int(num_outputs)
-        num_inputs = int(num_inputs)
+        #  Ensure num_inputs/num_outputs are ints
+        try:
+            num_outputs = int(num_outputs)
+            num_inputs = int(num_inputs)
+        except (TypeError, ValueError) as err:
+            raise err.__class__(f"Invalid argument for num_inputs/num_outputs: {str(err)}")
+
+        if "initial_volume" not in kwargs and "initial_volume_pc" not in kwargs:
+            raise ValueError("Initial volume must be specified in absolute or relative terms.")
 
         min_volume = pop_kwarg_parameter(kwargs, 'min_volume', 0.0)
-        if min_volume is None:
-            min_volume = 0.0
         max_volume = pop_kwarg_parameter(kwargs, 'max_volume', 0.0)
+
         initial_volume = kwargs.pop('initial_volume', 0.0)
+        try:
+            initial_volume = float(initial_volume)
+        except (TypeError, ValueError):
+            initial_volume = load_parameter_values(model, initial_volume)
+
         initial_volume_pc = kwargs.pop('initial_volume_pc', None)
         cost = pop_kwarg_parameter(kwargs, 'cost', 0.0)
 
         position = kwargs.pop("position", {})
 
-        super().__init__(model, name, **kwargs)
+        super().__init__(model, name, *args, **kwargs)
 
         # TODO this doesn't need multiple inputs and outputs
         self.outputs = []
@@ -217,7 +232,7 @@ class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
         for node in self.inputs:
             self.model.graph.add_node(node)
 
-    def after(self, ts):
+    def after(self, ts, adjustment=None):
         AbstractStorage.after(self, ts)
 
         for i, si in enumerate(self.model.scenarios.combinations):
@@ -236,48 +251,3 @@ class Battery(with_metaclass(NodeMeta, Drawable, Connectable, BaseStorage)):
                 self._current_pc[i] = self._volume[i] / mxv
             except ZeroDivisionError:
                 self._current_pc[i] = np.nan
-
-    @classmethod
-    def load(cls, data, model):
-        name = data.pop('name')
-        num_inputs = int(data.pop('inputs', 1))
-        num_outputs = int(data.pop('outputs', 1))
-
-        if 'initial_volume' not in data and 'initial_volume_pc' not in data:
-            raise ValueError('Initial volume must be specified in absolute or relative terms.')
-
-        initial_volume = data.pop('initial_volume', 0.0)
-        initial_volume_pc = data.pop('initial_volume_pc', None)
-        max_volume = data.pop('max_volume')
-        min_volume = data.pop('min_volume', 0.0)
-        cost = data.pop('cost', 0.0)
-
-        data.pop('type', None)
-        # Create the instance
-        node = cls(model=model, name=name, num_inputs=num_inputs, num_outputs=num_outputs, **data)
-
-        # Load the parameters after the instance has been created to prevent circular
-        # loading errors
-
-        # Try to coerce initial volume to float.
-        try:
-            initial_volume = float(initial_volume)
-        except TypeError:
-            initial_volume = load_parameter_values(model, initial_volume)
-        node.initial_volume = initial_volume
-        node.initial_volume_pc = initial_volume_pc
-
-        max_volume = load_parameter(model, max_volume)
-        if max_volume is not None:
-            node.max_volume = max_volume
-
-        min_volume = load_parameter(model, min_volume)
-        if min_volume is not None:
-            node.min_volume = min_volume
-
-        cost = load_parameter(model, cost)
-        if cost is None:
-            cost = 0.0
-        node.cost = cost
-
-        return node
